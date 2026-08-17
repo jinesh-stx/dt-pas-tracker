@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Engineering Task Tracker (Supabase Live Realtime)</title>
+  <title>Engineering Task Tracker (Live Team & Status Filter)</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -20,6 +20,7 @@
       --primary-hover: #2563eb;
       --success: #10b981;
       --warning: #f59e0b;
+      --not-started: #475569;
       --row-hover: #1e293b88;
     }
 
@@ -77,10 +78,10 @@
     .btn-outline { background: #1e293b; color: var(--text-main); border-color: var(--card-border); }
     .btn-outline:hover { background: #334155; }
 
-    /* Metrics Cards */
+    /* Metrics Grid */
     .metrics-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(295px, 1fr));
       gap: 16px;
       margin-bottom: 20px;
     }
@@ -91,31 +92,89 @@
       padding: 16px;
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 10px;
     }
     .metric-card-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 13px;
-      color: var(--text-muted);
-      font-weight: 500;
+      font-size: 13.5px;
+      color: #fff;
+      font-weight: 600;
     }
-    .metric-value { font-size: 24px; font-weight: 700; }
-    .progress-bar-bg {
-      width: 100%;
-      height: 8px;
-      background: #334155;
-      border-radius: 4px;
-      overflow: hidden;
-    }
-    .progress-bar-fill { height: 100%; border-radius: 4px; transition: width 0.3s ease; }
-    .fill-frontend { background: #38bdf8; }
-    .fill-backend { background: #a855f7; }
-    .fill-ai { background: #ec4899; }
-    .fill-overall { background: #10b981; }
+    .metric-total-label { font-size: 12px; color: var(--text-muted); font-weight: 500; }
 
-    /* Filter & Controls */
+    .metric-top-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+    }
+    .metric-pct-main { font-size: 20px; font-weight: 700; }
+    .metric-pct-sub { font-size: 13px; font-weight: 600; color: #f59e0b; }
+
+    /* Stacked Progress Bar */
+    .stacked-bar-container {
+      width: 100%;
+      height: 10px;
+      background: #0f172a;
+      border-radius: 6px;
+      overflow: hidden;
+      display: flex;
+      border: 1px solid #33415560;
+    }
+    .bar-segment {
+      height: 100%;
+      transition: width 0.3s ease;
+      cursor: pointer;
+    }
+    .seg-done { background: #10b981; }
+    .seg-prog { background: #f59e0b; }
+    .seg-not-started { background: #475569; }
+
+    /* Detailed Breakdown Legend */
+    .metric-legend {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      padding-top: 6px;
+      border-top: 1px solid #33415540;
+    }
+    .legend-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .legend-label {
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+    }
+    .legend-val {
+      font-weight: 700;
+      font-size: 12.5px;
+      white-space: nowrap;
+    }
+    .legend-pct {
+      font-size: 10.5px;
+      font-weight: 500;
+      opacity: 0.85;
+    }
+
+    .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .dot-done { background: #10b981; }
+    .dot-prog { background: #f59e0b; }
+    .dot-not { background: #64748b; }
+    .dot-na { background: #334155; }
+
+    /* Filter Bar & Controls */
     .filter-bar {
       display: flex;
       flex-wrap: wrap;
@@ -128,6 +187,12 @@
       border-radius: 12px;
       margin-bottom: 16px;
     }
+    .filter-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
     .search-input {
       background: #0f172a;
       border: 1px solid var(--card-border);
@@ -135,10 +200,24 @@
       padding: 8px 14px;
       color: #fff;
       font-size: 13px;
-      min-width: 320px;
+      min-width: 240px;
       outline: none;
     }
     .search-input:focus { border-color: var(--primary); }
+
+    .filter-select {
+      background: #0f172a;
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 8px 12px;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 500;
+      outline: none;
+      cursor: pointer;
+    }
+    .filter-select:focus { border-color: var(--primary); }
+
     .view-controls { display: flex; align-items: center; gap: 8px; }
 
     /* Table */
@@ -251,33 +330,174 @@
       </div>
     </header>
 
-    <!-- Metrics Cards (Dynamic Applicable Count) -->
+    <!-- Metrics Cards with Count + % Breakdown -->
     <div class="metrics-grid">
+      <!-- Overall Deliverables -->
       <div class="metric-card">
-        <div class="metric-card-header"><span>Overall Deliverables</span><span id="stat-overall-tasks">0/0</span></div>
-        <div class="metric-value" id="stat-overall-pct" style="color: #10b981;">0%</div>
-        <div class="progress-bar-bg"><div id="bar-overall" class="progress-bar-fill fill-overall" style="width: 0%;"></div></div>
+        <div class="metric-card-header">
+          <span>Overall Deliverables</span>
+          <span id="stat-overall-total" class="metric-total-label">0 Deliverables</span>
+        </div>
+        <div class="metric-top-row">
+          <div class="metric-pct-main" id="stat-overall-pct" style="color: #10b981;">0% Done</div>
+          <div class="metric-pct-sub" id="stat-overall-prog-pct">0% In Progress</div>
+        </div>
+        <div class="stacked-bar-container">
+          <div id="bar-overall-done" class="bar-segment seg-done" style="width: 0%;"></div>
+          <div id="bar-overall-prog" class="bar-segment seg-prog" style="width: 0%;"></div>
+          <div id="bar-overall-not" class="bar-segment seg-not-started" style="width: 100%;"></div>
+        </div>
+        <div class="metric-legend">
+          <div class="legend-item">
+            <span class="legend-label"><span class="dot dot-done"></span>Done</span>
+            <span class="legend-val" style="color:#10b981;"><span id="stat-overall-done-cnt">0</span> <span id="stat-overall-done-pct" class="legend-pct">(0%)</span></span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-label"><span class="dot dot-prog"></span>In Prog</span>
+            <span class="legend-val" style="color:#f59e0b;"><span id="stat-overall-prog-cnt">0</span> <span id="stat-overall-prog-pct2" class="legend-pct">(0%)</span></span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-label"><span class="dot dot-not"></span>Not St.</span>
+            <span class="legend-val" style="color:#94a3b8;"><span id="stat-overall-not-cnt">0</span> <span id="stat-overall-not-pct" class="legend-pct">(0%)</span></span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-label"><span class="dot dot-na"></span>N/A</span>
+            <span class="legend-val" style="color:#64748b;"><span id="stat-overall-na-cnt">0</span></span>
+          </div>
+        </div>
       </div>
+
+      <!-- Frontend Progress -->
       <div class="metric-card">
-        <div class="metric-card-header"><span>Frontend Progress</span><span id="stat-fe-tasks">0/0</span></div>
-        <div class="metric-value" id="stat-fe-pct" style="color: #38bdf8;">0%</div>
-        <div class="progress-bar-bg"><div id="bar-fe" class="progress-bar-fill fill-frontend" style="width: 0%;"></div></div>
+        <div class="metric-card-header">
+          <span>Frontend Progress</span>
+          <span id="stat-fe-total" class="metric-total-label">0 Tasks</span>
+        </div>
+        <div class="metric-top-row">
+          <div class="metric-pct-main" id="stat-fe-pct" style="color:#38bdf8;">0% Done</div>
+          <div class="metric-pct-sub" id="stat-fe-prog-pct">0% In Progress</div>
+        </div>
+        <div class="stacked-bar-container">
+          <div id="bar-fe-done" class="bar-segment seg-done" style="width: 0%; background:#38bdf8;"></div>
+          <div id="bar-fe-prog" class="bar-segment seg-prog" style="width: 0%;"></div>
+          <div id="bar-fe-not" class="bar-segment seg-not-started" style="width: 100%;"></div>
+        </div>
+        <div class="metric-legend">
+          <div class="legend-item">
+            <span class="legend-label"><span class="dot dot-done" style="background:#38bdf8;"></span>Done</span>
+            <span class="legend-val" style="color:#38bdf8;"><span id="stat-fe-done-cnt">0</span> <span id="stat-fe-done-pct" class="legend-pct">(0%)</span></span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-label"><span class="dot dot-prog"></span>In Prog</span>
+            <span class="legend-val" style="color:#f59e0b;"><span id="stat-fe-prog-cnt">0</span> <span id="stat-fe-prog-pct2" class="legend-pct">(0%)</span></span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-label"><span class="dot dot-not"></span>Not St.</span>
+            <span class="legend-val" style="color:#94a3b8;"><span id="stat-fe-not-cnt">0</span> <span id="stat-fe-not-pct" class="legend-pct">(0%)</span></span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-label"><span class="dot dot-na"></span>N/A</span>
+            <span class="legend-val" style="color:#64748b;"><span id="stat-fe-na-cnt">0</span></span>
+          </div>
+        </div>
       </div>
+
+      <!-- Backend Progress -->
       <div class="metric-card">
-        <div class="metric-card-header"><span>Backend Progress</span><span id="stat-be-tasks">0/0</span></div>
-        <div class="metric-value" id="stat-be-pct" style="color: #a855f7;">0%</div>
-        <div class="progress-bar-bg"><div id="bar-be" class="progress-bar-fill fill-backend" style="width: 0%;"></div></div>
+        <div class="metric-card-header">
+          <span>Backend Progress</span>
+          <span id="stat-be-total" class="metric-total-label">0 Tasks</span>
+        </div>
+        <div class="metric-top-row">
+          <div class="metric-pct-main" id="stat-be-pct" style="color:#a855f7;">0% Done</div>
+          <div class="metric-pct-sub" id="stat-be-prog-pct">0% In Progress</div>
+        </div>
+        <div class="stacked-bar-container">
+          <div id="bar-be-done" class="bar-segment seg-done" style="width: 0%; background:#a855f7;"></div>
+          <div id="bar-be-prog" class="bar-segment seg-prog" style="width: 0%;"></div>
+          <div id="bar-be-not" class="bar-segment seg-not-started" style="width: 100%;"></div>
+        </div>
+        <div class="metric-legend">
+          <div class="legend-item">
+            <span class="legend-label"><span class="dot dot-done" style="background:#a855f7;"></span>Done</span>
+            <span class="legend-val" style="color:#a855f7;"><span id="stat-be-done-cnt">0</span> <span id="stat-be-done-pct" class="legend-pct">(0%)</span></span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-label"><span class="dot dot-prog"></span>In Prog</span>
+            <span class="legend-val" style="color:#f59e0b;"><span id="stat-be-prog-cnt">0</span> <span id="stat-be-prog-pct2" class="legend-pct">(0%)</span></span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-label"><span class="dot dot-not"></span>Not St.</span>
+            <span class="legend-val" style="color:#94a3b8;"><span id="stat-be-not-cnt">0</span> <span id="stat-be-not-pct" class="legend-pct">(0%)</span></span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-label"><span class="dot dot-na"></span>N/A</span>
+            <span class="legend-val" style="color:#64748b;"><span id="stat-be-na-cnt">0</span></span>
+          </div>
+        </div>
       </div>
+
+      <!-- AI Team Progress -->
       <div class="metric-card">
-        <div class="metric-card-header"><span>AI Team Progress</span><span id="stat-ai-tasks">0/0</span></div>
-        <div class="metric-value" id="stat-ai-pct" style="color: #ec4899;">0%</div>
-        <div class="progress-bar-bg"><div id="bar-ai" class="progress-bar-fill fill-ai" style="width: 0%;"></div></div>
+        <div class="metric-card-header">
+          <span>AI Team Progress</span>
+          <span id="stat-ai-total" class="metric-total-label">0 Tasks</span>
+        </div>
+        <div class="metric-top-row">
+          <div class="metric-pct-main" id="stat-ai-pct" style="color:#ec4899;">0% Done</div>
+          <div class="metric-pct-sub" id="stat-ai-prog-pct">0% In Progress</div>
+        </div>
+        <div class="stacked-bar-container">
+          <div id="bar-ai-done" class="bar-segment seg-done" style="width: 0%; background:#ec4899;"></div>
+          <div id="bar-ai-prog" class="bar-segment seg-prog" style="width: 0%;"></div>
+          <div id="bar-ai-not" class="bar-segment seg-not-started" style="width: 100%;"></div>
+        </div>
+        <div class="metric-legend">
+          <div class="legend-item">
+            <span class="legend-label"><span class="dot dot-done" style="background:#ec4899;"></span>Done</span>
+            <span class="legend-val" style="color:#ec4899;"><span id="stat-ai-done-cnt">0</span> <span id="stat-ai-done-pct" class="legend-pct">(0%)</span></span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-label"><span class="dot dot-prog"></span>In Prog</span>
+            <span class="legend-val" style="color:#f59e0b;"><span id="stat-ai-prog-cnt">0</span> <span id="stat-ai-prog-pct2" class="legend-pct">(0%)</span></span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-label"><span class="dot dot-not"></span>Not St.</span>
+            <span class="legend-val" style="color:#94a3b8;"><span id="stat-ai-not-cnt">0</span> <span id="stat-ai-not-pct" class="legend-pct">(0%)</span></span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-label"><span class="dot dot-na"></span>N/A</span>
+            <span class="legend-val" style="color:#64748b;"><span id="stat-ai-na-cnt">0</span></span>
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- Filter Bar -->
+    <!-- Filter & View Controls Bar -->
     <div class="filter-bar">
-      <input type="text" id="searchInput" class="search-input" placeholder="🔍 Search tasks or KPIs..." oninput="handleSearch()">
+      <div class="filter-group">
+        <input type="text" id="searchInput" class="search-input" placeholder="🔍 Search tasks..." oninput="handleFilters()">
+        
+        <!-- Team Filter -->
+        <select id="teamFilter" class="filter-select" onchange="handleFilters()">
+          <option value="all">👥 All Teams</option>
+          <option value="fe">Front End</option>
+          <option value="be">Back End</option>
+          <option value="ai">AI Team</option>
+        </select>
+
+        <!-- Status Filter -->
+        <select id="statusFilter" class="filter-select" onchange="handleFilters()">
+          <option value="all">⚡ All Statuses</option>
+          <option value="In Progress">🟡 In Progress</option>
+          <option value="Not Started">⚪ Not Started</option>
+          <option value="Completed">🟢 Completed</option>
+          <option value="N/A">⬛ N/A</option>
+        </select>
+
+        <button class="btn btn-outline" onclick="resetFilters()" style="padding: 7px 12px; font-size: 12px;">Reset</button>
+      </div>
+
       <div class="view-controls">
         <button class="btn btn-outline" onclick="expandAll()">⊞ Expand All</button>
         <button class="btn btn-outline" onclick="collapseAll()">⊟ Collapse All</button>
@@ -321,11 +541,26 @@
       "Billing Capture"
     ];
 
+    function normalizeStatus(val) {
+      if (!val) return 'Not Started';
+      const s = String(val).trim().toLowerCase();
+      if (s === 'n/a' || s === 'na' || s === 'not applicable' || s === 'not-applicable' || s === '-') {
+        return 'N/A';
+      }
+      if (s === 'completed' || s === 'done' || s === 'complete') {
+        return 'Completed';
+      }
+      if (s === 'in progress' || s === 'in-progress' || s === 'wip' || s === 'progress') {
+        return 'In Progress';
+      }
+      return 'Not Started';
+    }
+
     function buildDefaultTasks() {
       const list = [];
       let id = 1;
       const add = (name, level, fe = "Not Started", be = "Not Started", ai = "Not Started") => {
-        list.push({ id: id++, name, level, fe, be, ai });
+        list.push({ id: id++, name, level, fe: normalizeStatus(fe), be: normalizeStatus(be), ai: normalizeStatus(ai) });
       };
 
       add("Role based login", 0, "Not Started", "Not Started", "N/A");
@@ -417,7 +652,13 @@
         if (error) throw error;
 
         if (data && data.length > 0) {
-          tasks = data;
+          tasks = data.map(item => ({
+            ...item,
+            fe: normalizeStatus(item.fe),
+            be: normalizeStatus(item.be),
+            ai: normalizeStatus(item.ai)
+          }));
+          
           statusBadge.innerHTML = '🟢 Realtime Sync Active';
           statusBadge.style.background = '#064e3b40';
           statusBadge.style.color = '#34d399';
@@ -444,9 +685,9 @@
           const updated = payload.new;
           const target = tasks.find(t => t.id === updated.id);
           if (target) {
-            target.fe = updated.fe;
-            target.be = updated.be;
-            target.ai = updated.ai;
+            target.fe = normalizeStatus(updated.fe);
+            target.be = normalizeStatus(updated.be);
+            target.ai = normalizeStatus(updated.ai);
             renderTable();
             showToast(`Task #${updated.id} updated live`);
           }
@@ -458,13 +699,14 @@
       const task = tasks.find(t => t.id === taskId);
       if (!task) return;
 
-      task[teamKey] = newValue;
-      selectElement.className = `status-select ${getStatusClass(newValue)}`;
+      const normVal = normalizeStatus(newValue);
+      task[teamKey] = normVal;
+      selectElement.className = `status-select ${getStatusClass(normVal)}`;
       updateMetrics();
 
       try {
         const payload = {};
-        payload[teamKey] = newValue;
+        payload[teamKey] = normVal;
         payload.updated_at = new Date().toISOString();
 
         const { error } = await supabaseClient.from('tasks').update(payload).eq('id', taskId);
@@ -523,32 +765,72 @@
     }
 
     function getStatusClass(status) {
-      if (status === "In Progress") return "status-in-progress";
-      if (status === "Completed") return "status-completed";
-      if (status === "N/A") return "status-na";
+      const s = normalizeStatus(status);
+      if (s === "In Progress") return "status-in-progress";
+      if (s === "Completed") return "status-completed";
+      if (s === "N/A") return "status-na";
       return "status-not-started";
     }
 
-    function handleSearch() {
-      const query = (document.getElementById('searchInput').value || '').trim().toLowerCase();
-      if (query) {
+    // Combined Search + Team + Status Filter Handler
+    function handleFilters() {
+      const searchTxt = (document.getElementById('searchInput').value || '').trim().toLowerCase();
+      const teamVal = document.getElementById('teamFilter').value;
+      const statusVal = document.getElementById('statusFilter').value;
+
+      const isFilterActive = searchTxt || teamVal !== 'all' || statusVal !== 'all';
+
+      if (isFilterActive) {
+        // Auto-expand ancestors of matching items so filtered tasks are visible
         const ancestorStack = [];
-        tasks.forEach(task => {
+        tasks.forEach((task, idx) => {
+          const hasChildren = (idx + 1 < tasks.length) && (tasks[idx + 1].level > task.level);
           while (ancestorStack.length > 0 && ancestorStack[ancestorStack.length - 1].level >= task.level) {
             ancestorStack.pop();
           }
-          if (task.name.toLowerCase().includes(query)) {
+
+          let matches = true;
+
+          // Search match
+          if (searchTxt && !task.name.toLowerCase().includes(searchTxt)) {
+            matches = false;
+          }
+
+          // Team + Status match (evaluated on leaf tasks)
+          if (!hasChildren && statusVal !== 'all') {
+            if (teamVal === 'all') {
+              const anyTeamMatches = (task.fe === statusVal || task.be === statusVal || task.ai === statusVal);
+              if (!anyTeamMatches) matches = false;
+            } else {
+              if (task[teamVal] !== statusVal) matches = false;
+            }
+          }
+
+          if (matches) {
             ancestorStack.forEach(p => collapsedNodeIds.delete(p.id));
           }
+
           ancestorStack.push(task);
         });
       }
+
+      renderTable();
+    }
+
+    function resetFilters() {
+      document.getElementById('searchInput').value = '';
+      document.getElementById('teamFilter').value = 'all';
+      document.getElementById('statusFilter').value = 'all';
       renderTable();
     }
 
     function renderTable() {
       const tbody = document.getElementById('taskTableBody');
-      const searchQuery = (document.getElementById('searchInput').value || '').toLowerCase();
+      const searchTxt = (document.getElementById('searchInput').value || '').trim().toLowerCase();
+      const teamVal = document.getElementById('teamFilter').value;
+      const statusVal = document.getElementById('statusFilter').value;
+
+      const isFilterActive = Boolean(searchTxt || teamVal !== 'all' || statusVal !== 'all');
       tbody.innerHTML = '';
 
       const ancestorStack = [];
@@ -563,8 +845,23 @@
         const isHiddenByAncestor = ancestorStack.some(p => collapsedNodeIds.has(p.id));
         ancestorStack.push(task);
 
-        if (isHiddenByAncestor && !searchQuery) return;
-        if (searchQuery && !task.name.toLowerCase().includes(searchQuery)) return;
+        if (isHiddenByAncestor && !isFilterActive) return;
+
+        // Apply filtering to rows
+        if (isFilterActive) {
+          if (searchTxt && !task.name.toLowerCase().includes(searchTxt)) {
+            return;
+          }
+
+          if (!hasChildren && statusVal !== 'all') {
+            if (teamVal === 'all') {
+              const anyMatch = (task.fe === statusVal || task.be === statusVal || task.ai === statusVal);
+              if (!anyMatch) return;
+            } else {
+              if (task[teamVal] !== statusVal) return;
+            }
+          }
+        }
 
         const isCollapsed = collapsedNodeIds.has(task.id);
         const tr = document.createElement('tr');
@@ -603,9 +900,10 @@
     }
 
     function createStatusDropdown(taskId, teamKey, currentVal) {
-      const cls = getStatusClass(currentVal);
+      const normalizedCurrent = normalizeStatus(currentVal);
+      const cls = getStatusClass(normalizedCurrent);
       const optionsHtml = STATUS_OPTIONS.map(opt => 
-        `<option value="${opt}" ${opt === currentVal ? 'selected' : ''}>${opt}</option>`
+        `<option value="${opt}" ${opt === normalizedCurrent ? 'selected' : ''}>${opt}</option>`
       ).join('');
 
       return `
@@ -615,53 +913,125 @@
       `;
     }
 
-    // Calculates team metrics, strictly excluding 'N/A' from denominator
-    function calculateTeamProgress(teamKey) {
-      let applicable = 0;
-      let completed = 0;
+    function getTeamBreakdown(teamKey) {
+      let done = 0;
+      let inProgress = 0;
+      let notStarted = 0;
+      let na = 0;
+
       tasks.forEach((t, idx) => {
         const hasChildren = (idx + 1 < tasks.length) && (tasks[idx + 1].level > t.level);
         if (!hasChildren) {
-          // Exclude N/A from applicable count
-          if (t[teamKey] !== 'N/A') {
-            applicable++;
-            if (t[teamKey] === 'Completed') completed++;
-          }
+          const s = normalizeStatus(t[teamKey]);
+          if (s === 'Completed') done++;
+          else if (s === 'In Progress') inProgress++;
+          else if (s === 'N/A') na++;
+          else notStarted++;
         }
       });
-      const pct = applicable === 0 ? 100 : Math.round((completed / applicable) * 100);
-      return { completed, applicable, pct };
+
+      const applicable = done + inProgress + notStarted;
+      const donePct = applicable === 0 ? 0 : Math.round((done / applicable) * 100);
+      const progPct = applicable === 0 ? 0 : Math.round((inProgress / applicable) * 100);
+      const notStartedPct = applicable === 0 ? 0 : Math.max(0, 100 - donePct - progPct);
+
+      return { done, inProgress, notStarted, na, applicable, donePct, progPct, notStartedPct };
     }
 
     function updateMetrics() {
-      const fe = calculateTeamProgress('fe');
-      const be = calculateTeamProgress('be');
-      const ai = calculateTeamProgress('ai');
+      const fe = getTeamBreakdown('fe');
+      const be = getTeamBreakdown('be');
+      const ai = getTeamBreakdown('ai');
 
-      // Overall Deliverables across all 3 teams (excluding all N/A slots)
-      const totalApplicableDeliverables = fe.applicable + be.applicable + ai.applicable;
-      const totalCompletedDeliverables = fe.completed + be.completed + ai.completed;
-      const overallPct = totalApplicableDeliverables === 0 ? 100 : Math.round((totalCompletedDeliverables / totalApplicableDeliverables) * 100);
+      const totalDone = fe.done + be.done + ai.done;
+      const totalProg = fe.inProgress + be.inProgress + ai.inProgress;
+      const totalNot = fe.notStarted + be.notStarted + ai.notStarted;
+      const totalNA = fe.na + be.na + ai.na;
+      const totalApplicable = totalDone + totalProg + totalNot;
 
-      // Update Frontend Card
-      document.getElementById('stat-fe-pct').innerText = `${fe.pct}%`;
-      document.getElementById('stat-fe-tasks').innerText = `${fe.completed}/${fe.applicable}`;
-      document.getElementById('bar-fe').style.width = `${fe.pct}%`;
+      const overallDonePct = totalApplicable === 0 ? 0 : Math.round((totalDone / totalApplicable) * 100);
+      const overallProgPct = totalApplicable === 0 ? 0 : Math.round((totalProg / totalApplicable) * 100);
+      const overallNotPct = totalApplicable === 0 ? 0 : Math.max(0, 100 - overallDonePct - overallProgPct);
 
-      // Update Backend Card
-      document.getElementById('stat-be-pct').innerText = `${be.pct}%`;
-      document.getElementById('stat-be-tasks').innerText = `${be.completed}/${be.applicable}`;
-      document.getElementById('bar-be').style.width = `${be.pct}%`;
+      // 1. Overall Deliverables Card
+      document.getElementById('stat-overall-total').innerText = `${totalApplicable} Deliverables`;
+      document.getElementById('stat-overall-pct').innerText = `${overallDonePct}% Done`;
+      document.getElementById('stat-overall-prog-pct').innerText = `${overallProgPct}% In Progress`;
+      
+      document.getElementById('bar-overall-done').style.width = `${overallDonePct}%`;
+      document.getElementById('bar-overall-done').title = `Done: ${totalDone} (${overallDonePct}%)`;
+      document.getElementById('bar-overall-prog').style.width = `${overallProgPct}%`;
+      document.getElementById('bar-overall-prog').title = `In Progress: ${totalProg} (${overallProgPct}%)`;
+      document.getElementById('bar-overall-not').style.width = `${overallNotPct}%`;
+      document.getElementById('bar-overall-not').title = `Not Started: ${totalNot} (${overallNotPct}%)`;
 
-      // Update AI Team Card
-      document.getElementById('stat-ai-pct').innerText = `${ai.pct}%`;
-      document.getElementById('stat-ai-tasks').innerText = `${ai.completed}/${ai.applicable}`;
-      document.getElementById('bar-ai').style.width = `${ai.pct}%`;
+      document.getElementById('stat-overall-done-cnt').innerText = totalDone;
+      document.getElementById('stat-overall-done-pct').innerText = `(${overallDonePct}%)`;
+      document.getElementById('stat-overall-prog-cnt').innerText = totalProg;
+      document.getElementById('stat-overall-prog-pct2').innerText = `(${overallProgPct}%)`;
+      document.getElementById('stat-overall-not-cnt').innerText = totalNot;
+      document.getElementById('stat-overall-not-pct').innerText = `(${overallNotPct}%)`;
+      document.getElementById('stat-overall-na-cnt').innerText = totalNA;
 
-      // Update Overall Card
-      document.getElementById('stat-overall-pct').innerText = `${overallPct}%`;
-      document.getElementById('stat-overall-tasks').innerText = `${totalCompletedDeliverables}/${totalApplicableDeliverables}`;
-      document.getElementById('bar-overall').style.width = `${overallPct}%`;
+      // 2. Frontend Progress Card
+      document.getElementById('stat-fe-total').innerText = `${fe.applicable} Active Tasks`;
+      document.getElementById('stat-fe-pct').innerText = `${fe.donePct}% Done`;
+      document.getElementById('stat-fe-prog-pct').innerText = `${fe.progPct}% In Progress`;
+
+      document.getElementById('bar-fe-done').style.width = `${fe.donePct}%`;
+      document.getElementById('bar-fe-done').title = `Done: ${fe.done} (${fe.donePct}%)`;
+      document.getElementById('bar-fe-prog').style.width = `${fe.progPct}%`;
+      document.getElementById('bar-fe-prog').title = `In Progress: ${fe.inProgress} (${fe.progPct}%)`;
+      document.getElementById('bar-fe-not').style.width = `${fe.notStartedPct}%`;
+      document.getElementById('bar-fe-not').title = `Not Started: ${fe.notStarted} (${fe.notStartedPct}%)`;
+
+      document.getElementById('stat-fe-done-cnt').innerText = fe.done;
+      document.getElementById('stat-fe-done-pct').innerText = `(${fe.donePct}%)`;
+      document.getElementById('stat-fe-prog-cnt').innerText = fe.inProgress;
+      document.getElementById('stat-fe-prog-pct2').innerText = `(${fe.progPct}%)`;
+      document.getElementById('stat-fe-not-cnt').innerText = fe.notStarted;
+      document.getElementById('stat-fe-not-pct').innerText = `(${fe.notStartedPct}%)`;
+      document.getElementById('stat-fe-na-cnt').innerText = fe.na;
+
+      // 3. Backend Progress Card
+      document.getElementById('stat-be-total').innerText = `${be.applicable} Active Tasks`;
+      document.getElementById('stat-be-pct').innerText = `${be.donePct}% Done`;
+      document.getElementById('stat-be-prog-pct').innerText = `${be.progPct}% In Progress`;
+
+      document.getElementById('bar-be-done').style.width = `${be.donePct}%`;
+      document.getElementById('bar-be-done').title = `Done: ${be.done} (${be.donePct}%)`;
+      document.getElementById('bar-be-prog').style.width = `${be.progPct}%`;
+      document.getElementById('bar-be-prog').title = `In Progress: ${be.inProgress} (${be.progPct}%)`;
+      document.getElementById('bar-be-not').style.width = `${be.notStartedPct}%`;
+      document.getElementById('bar-be-not').title = `Not Started: ${be.notStarted} (${be.notStartedPct}%)`;
+
+      document.getElementById('stat-be-done-cnt').innerText = be.done;
+      document.getElementById('stat-be-done-pct').innerText = `(${be.donePct}%)`;
+      document.getElementById('stat-be-prog-cnt').innerText = be.inProgress;
+      document.getElementById('stat-be-prog-pct2').innerText = `(${be.progPct}%)`;
+      document.getElementById('stat-be-not-cnt').innerText = be.notStarted;
+      document.getElementById('stat-be-not-pct').innerText = `(${be.notStartedPct}%)`;
+      document.getElementById('stat-be-na-cnt').innerText = be.na;
+
+      // 4. AI Team Progress Card
+      document.getElementById('stat-ai-total').innerText = `${ai.applicable} Active Tasks`;
+      document.getElementById('stat-ai-pct').innerText = `${ai.donePct}% Done`;
+      document.getElementById('stat-ai-prog-pct').innerText = `${ai.progPct}% In Progress`;
+
+      document.getElementById('bar-ai-done').style.width = `${ai.donePct}%`;
+      document.getElementById('bar-ai-done').title = `Done: ${ai.done} (${ai.donePct}%)`;
+      document.getElementById('bar-ai-prog').style.width = `${ai.progPct}%`;
+      document.getElementById('bar-ai-prog').title = `In Progress: ${ai.inProgress} (${ai.progPct}%)`;
+      document.getElementById('bar-ai-not').style.width = `${ai.notStartedPct}%`;
+      document.getElementById('bar-ai-not').title = `Not Started: ${ai.notStarted} (${ai.notStartedPct}%)`;
+
+      document.getElementById('stat-ai-done-cnt').innerText = ai.done;
+      document.getElementById('stat-ai-done-pct').innerText = `(${ai.donePct}%)`;
+      document.getElementById('stat-ai-prog-cnt').innerText = ai.inProgress;
+      document.getElementById('stat-ai-prog-pct2').innerText = `(${ai.progPct}%)`;
+      document.getElementById('stat-ai-not-cnt').innerText = ai.notStarted;
+      document.getElementById('stat-ai-not-pct').innerText = `(${ai.notStartedPct}%)`;
+      document.getElementById('stat-ai-na-cnt').innerText = ai.na;
     }
 
     function showToast(msg) {
