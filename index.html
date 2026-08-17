@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Engineering Task Tracker (375 Innermost Leaf Tasks)</title>
+  <title>Engineering Task Tracker (Supabase Live Realtime)</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -251,25 +251,25 @@
       </div>
     </header>
 
-    <!-- Metrics Cards (Tracking 375 Innermost Leaf Tasks) -->
+    <!-- Metrics Cards (Dynamic Applicable Count) -->
     <div class="metrics-grid">
       <div class="metric-card">
-        <div class="metric-card-header"><span>Overall Progress</span><span id="stat-overall-tasks">0/375</span></div>
+        <div class="metric-card-header"><span>Overall Deliverables</span><span id="stat-overall-tasks">0/0</span></div>
         <div class="metric-value" id="stat-overall-pct" style="color: #10b981;">0%</div>
         <div class="progress-bar-bg"><div id="bar-overall" class="progress-bar-fill fill-overall" style="width: 0%;"></div></div>
       </div>
       <div class="metric-card">
-        <div class="metric-card-header"><span>Frontend Progress</span><span id="stat-fe-tasks">0/375</span></div>
+        <div class="metric-card-header"><span>Frontend Progress</span><span id="stat-fe-tasks">0/0</span></div>
         <div class="metric-value" id="stat-fe-pct" style="color: #38bdf8;">0%</div>
         <div class="progress-bar-bg"><div id="bar-fe" class="progress-bar-fill fill-frontend" style="width: 0%;"></div></div>
       </div>
       <div class="metric-card">
-        <div class="metric-card-header"><span>Backend Progress</span><span id="stat-be-tasks">0/375</span></div>
+        <div class="metric-card-header"><span>Backend Progress</span><span id="stat-be-tasks">0/0</span></div>
         <div class="metric-value" id="stat-be-pct" style="color: #a855f7;">0%</div>
         <div class="progress-bar-bg"><div id="bar-be" class="progress-bar-fill fill-backend" style="width: 0%;"></div></div>
       </div>
       <div class="metric-card">
-        <div class="metric-card-header"><span>AI Team Progress</span><span id="stat-ai-tasks">0/374</span></div>
+        <div class="metric-card-header"><span>AI Team Progress</span><span id="stat-ai-tasks">0/0</span></div>
         <div class="metric-value" id="stat-ai-pct" style="color: #ec4899;">0%</div>
         <div class="progress-bar-bg"><div id="bar-ai" class="progress-bar-fill fill-ai" style="width: 0%;"></div></div>
       </div>
@@ -615,12 +615,14 @@
       `;
     }
 
+    // Calculates team metrics, strictly excluding 'N/A' from denominator
     function calculateTeamProgress(teamKey) {
       let applicable = 0;
       let completed = 0;
       tasks.forEach((t, idx) => {
         const hasChildren = (idx + 1 < tasks.length) && (tasks[idx + 1].level > t.level);
         if (!hasChildren) {
+          // Exclude N/A from applicable count
           if (t[teamKey] !== 'N/A') {
             applicable++;
             if (t[teamKey] === 'Completed') completed++;
@@ -636,44 +638,29 @@
       const be = calculateTeamProgress('be');
       const ai = calculateTeamProgress('ai');
 
-      // Total leaf tasks count
-      let totalLeafCount = 0;
-      let fullyCompletedLeafTasks = 0;
+      // Overall Deliverables across all 3 teams (excluding all N/A slots)
+      const totalApplicableDeliverables = fe.applicable + be.applicable + ai.applicable;
+      const totalCompletedDeliverables = fe.completed + be.completed + ai.completed;
+      const overallPct = totalApplicableDeliverables === 0 ? 100 : Math.round((totalCompletedDeliverables / totalApplicableDeliverables) * 100);
 
-      tasks.forEach((t, idx) => {
-        const hasChildren = (idx + 1 < tasks.length) && (tasks[idx + 1].level > t.level);
-        if (!hasChildren) {
-          totalLeafCount++;
-          // A leaf task is fully completed if all applicable teams marked it Completed
-          const feDone = t.fe === 'Completed' || t.fe === 'N/A';
-          const beDone = t.be === 'Completed' || t.be === 'N/A';
-          const aiDone = t.ai === 'Completed' || t.ai === 'N/A';
-          if (feDone && beDone && aiDone) {
-            fullyCompletedLeafTasks++;
-          }
-        }
-      });
-
-      const overallPct = totalLeafCount === 0 ? 100 : Math.round((fullyCompletedLeafTasks / totalLeafCount) * 100);
-
-      // Update Frontend (X / 375)
+      // Update Frontend Card
       document.getElementById('stat-fe-pct').innerText = `${fe.pct}%`;
       document.getElementById('stat-fe-tasks').innerText = `${fe.completed}/${fe.applicable}`;
       document.getElementById('bar-fe').style.width = `${fe.pct}%`;
 
-      // Update Backend (X / 375)
+      // Update Backend Card
       document.getElementById('stat-be-pct').innerText = `${be.pct}%`;
       document.getElementById('stat-be-tasks').innerText = `${be.completed}/${be.applicable}`;
       document.getElementById('bar-be').style.width = `${be.pct}%`;
 
-      // Update AI (X / 374 - since Role-based login is N/A for AI)
+      // Update AI Team Card
       document.getElementById('stat-ai-pct').innerText = `${ai.pct}%`;
       document.getElementById('stat-ai-tasks').innerText = `${ai.completed}/${ai.applicable}`;
       document.getElementById('bar-ai').style.width = `${ai.pct}%`;
 
-      // Update Overall (X / 375 total innermost tasks)
+      // Update Overall Card
       document.getElementById('stat-overall-pct').innerText = `${overallPct}%`;
-      document.getElementById('stat-overall-tasks').innerText = `${fullyCompletedLeafTasks}/${totalLeafCount}`;
+      document.getElementById('stat-overall-tasks').innerText = `${totalCompletedDeliverables}/${totalApplicableDeliverables}`;
       document.getElementById('bar-overall').style.width = `${overallPct}%`;
     }
 
