@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Engineering Task Tracker (Supabase Live Realtime)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Supabase JS Client via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --card-border: #334155;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --row-hover: #1e293b88;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg);
+      color: var(--text-main);
+      padding: 24px;
+      line-height: 1.5;
+    }
+
+    .container { max-width: 1440px; margin: 0 auto; }
+
+    /* Header */
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      gap: 16px;
+    }
+    .header-title h1 { font-size: 24px; font-weight: 700; color: #fff; }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 600;
+      background: #064e3b40;
+      color: #34d399;
+      border: 1px solid #05966940;
+      margin-top: 6px;
+    }
+
+    .header-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+    .btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      user-select: none;
+    }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-outline { background: #1e293b; color: var(--text-main); border-color: var(--card-border); }
+    .btn-outline:hover { background: #334155; }
+
+    /* Metrics */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .metric-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .metric-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+    .metric-value { font-size: 24px; font-weight: 700; }
+    .progress-bar-bg {
+      width: 100%;
+      height: 8px;
+      background: #334155;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .progress-bar-fill { height: 100%; border-radius: 4px; transition: width 0.3s ease; }
+    .fill-frontend { background: #38bdf8; }
+    .fill-backend { background: #a855f7; }
+    .fill-ai { background: #ec4899; }
+    .fill-overall { background: #10b981; }
+
+    /* Filter & Controls */
+    .filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--card-bg);
+      padding: 14px 18px;
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      margin-bottom: 16px;
+    }
+    .search-input {
+      background: #0f172a;
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 8px 14px;
+      color: #fff;
+      font-size: 13px;
+      min-width: 320px;
+      outline: none;
+    }
+    .search-input:focus { border-color: var(--primary); }
+    .view-controls { display: flex; align-items: center; gap: 8px; }
+
+    /* Table */
+    .table-container {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      overflow-x: auto;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+    table { width: 100%; border-collapse: collapse; text-align: left; }
+    th {
+      background: #0f172a;
+      padding: 14px 18px;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--card-border);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    td {
+      padding: 8px 18px;
+      font-size: 13px;
+      border-bottom: 1px solid #33415533;
+      vertical-align: middle;
+    }
+    tr:hover { background-color: var(--row-hover); }
+
+    /* Hierarchy */
+    tr.level-0 { background-color: #1e293b; font-weight: 700; }
+    tr.level-0 td:first-child { color: #60a5fa; font-size: 14px; padding-top: 12px; padding-bottom: 12px; }
+    tr.level-1 { background-color: #182235; font-weight: 600; }
+    tr.level-1 td:first-child { color: #38bdf8; padding-left: 32px; font-size: 13.5px; }
+    tr.level-2 { background-color: #121b2d50; font-weight: 500; }
+    tr.level-2 td:first-child { color: #e2e8f0; padding-left: 58px; }
+    tr.level-3 td:first-child { color: #94a3b8; padding-left: 86px; font-weight: 400; }
+
+    .toggle-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      font-size: 11px;
+      margin-right: 6px;
+      cursor: pointer;
+      user-select: none;
+      color: var(--text-muted);
+      border-radius: 4px;
+      transition: all 0.15s;
+    }
+    .toggle-icon:hover { background: #334155; color: #fff; }
+    .toggle-spacer { display: inline-block; width: 18px; margin-right: 6px; }
+
+    /* Status Dropdowns */
+    select.status-select {
+      width: 100%;
+      min-width: 140px;
+      padding: 5px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      border: 1px solid var(--card-border);
+      background-color: #0f172a;
+      color: var(--text-main);
+      outline: none;
+      cursor: pointer;
+    }
+    select.status-not-started { color: #94a3b8; border-left: 4px solid #64748b; }
+    select.status-in-progress { color: #fbbf24; border-left: 4px solid #f59e0b; background: #78350f22; }
+    select.status-completed { color: #34d399; border-left: 4px solid #10b981; background: #064e3b22; }
+    select.status-na { color: #64748b; border-left: 4px solid #475569; opacity: 0.7; }
+    .header-placeholder { color: #475569; font-weight: 600; padding-left: 8px; }
+
+    /* Toast */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #10b981;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      opacity: 0;
+      transform: translateY(10px);
+      transition: all 0.25s ease;
+      pointer-events: none;
+      z-index: 9999;
+    }
+    #toast.show { opacity: 1; transform: translateY(0); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="header-title">
+        <h1>Engineering Task & Progress Tracker</h1>
+        <div id="statusBadge" class="status-badge">🔄 Connecting to Supabase...</div>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-outline" id="btnInitDb" onclick="seedDatabaseInitial()" style="display:none; border-color: #f59e0b; color: #fbbf24;">🚀 1-Click Initialize Database</button>
+        <button class="btn btn-outline" onclick="exportCSV()">Export CSV</button>
+      </div>
+    </header>
+
+    <!-- Metrics Cards -->
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-card-header"><span>Overall Progress</span><span id="stat-overall-tasks">0/0</span></div>
+        <div class="metric-value" id="stat-overall-pct" style="color: #10b981;">0%</div>
+        <div class="progress-bar-bg"><div id="bar-overall" class="progress-bar-fill fill-overall" style="width: 0%;"></div></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-card-header"><span>Frontend Progress</span><span id="stat-fe-tasks">0/0</span></div>
+        <div class="metric-value" id="stat-fe-pct" style="color: #38bdf8;">0%</div>
+        <div class="progress-bar-bg"><div id="bar-fe" class="progress-bar-fill fill-frontend" style="width: 0%;"></div></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-card-header"><span>Backend Progress</span><span id="stat-be-tasks">0/0</span></div>
+        <div class="metric-value" id="stat-be-pct" style="color: #a855f7;">0%</div>
+        <div class="progress-bar-bg"><div id="bar-be" class="progress-bar-fill fill-backend" style="width: 0%;"></div></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-card-header"><span>AI Team Progress</span><span id="stat-ai-tasks">0/0</span></div>
+        <div class="metric-value" id="stat-ai-pct" style="color: #ec4899;">0%</div>
+        <div class="progress-bar-bg"><div id="bar-ai" class="progress-bar-fill fill-ai" style="width: 0%;"></div></div>
+      </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="filter-bar">
+      <input type="text" id="searchInput" class="search-input" placeholder="🔍 Search tasks or KPIs..." oninput="handleSearch()">
+      <div class="view-controls">
+        <button class="btn btn-outline" onclick="expandAll()">⊞ Expand All</button>
+        <button class="btn btn-outline" onclick="collapseAll()">⊟ Collapse All</button>
+      </div>
+    </div>
+
+    <!-- Main Table -->
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 46%;">Module / Feature / Task Name</th>
+            <th style="width: 18%;">Front End</th>
+            <th style="width: 18%;">Back End</th>
+            <th style="width: 18%;">AI Team</th>
+          </tr>
+        </thead>
+        <tbody id="taskTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="toast">Saved!</div>
+
+  <script>
+    // ==========================================
+    // ⚙️ CONFIGURATION: Paste your Supabase credentials here
+    // ==========================================
+    const SUPABASE_URL = 'https://qyxyenzxuwrjajsvudyx.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF5eHllbnp4dXdyamFqc3Z1ZHl4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY5NTIwMDMsImV4cCI6MjEwMjUyODAwM30.sajKFIQg6d4pZMjA6ILRfiRru62jZZxqIwiTmqOjAHY';
+
+    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const KPIS = [
+      "TNAA", "Average Days to Appointment", "Same-/Next-Day %", "Seasonal/Pattern Variability",
+      "Completion Rate", "Throughput per Provider/Day", "Provider Utilization", "Exam Room Utilization",
+      "Template Utilization", "Staffing Alignment", "Provider Idle", "Workload Distribution",
+      "No-Show Rate", "Cancellation Rate", "Late Cancellation %", "Rebooking Success",
+      "Visit Cycle Time", "Pre-Provider Wait", "Provider Overtime", "Exam Room Turnover",
+      "Demand Forecast Accuracy", "Revenue per Provider per Session", "Revenue Lost to No-Shows",
+      "Billing Capture"
+    ];
+
+    function buildDefaultTasks() {
+      const list = [];
+      let id = 1;
+      const add = (name, level, fe = "Not Started", be = "Not Started", ai = "Not Started") => {
+        list.push({ id: id++, name, level, fe, be, ai });
+      };
+
+      add("Role based login", 0, "Not Started", "Not Started", "N/A");
+      add("Clinical Administrator", 0);
+      add("Dashboard", 1);
+      add("Need Attention section", 2);
+      add("KPI Summary section", 2);
+      add("Department Comprison Section", 2);
+      add("Historical Trend Section", 2);
+      add("Cost impact by Group Section", 2);
+      add("KPI Explorer", 1);
+
+      KPIS.forEach(kpi => {
+        add(kpi, 1);
+        add("View KPI Details", 2);
+        add("AI Insights", 3);
+        add("KPI Summary section", 3);
+        add("Trend", 3);
+        add("Breakdown", 3);
+        add("Influencing factors", 3);
+        add("Related KPIs", 3);
+
+        add("Explore KPI", 2);
+        add("What we detected", 3);
+        add("Root Cause", 3);
+        add("Recommendations", 3);
+
+        add("Data Lineage", 2);
+        add("Summary", 3);
+        add("AI explanation", 3);
+        add("Contribution tree", 3);
+        add("Formula", 3);
+        add("Affected Records", 3);
+      });
+
+      add("Simulation Studio", 1);
+      add("Run Simulation", 1);
+
+      add("System Admin", 0);
+      add("Enterprise", 1);
+      add("Enterprise Structure", 2);
+      add("Add Facility", 2);
+      add("View Facility Details", 2);
+      add("Edit Facility", 2);
+      add("Add Department", 2);
+      add("View Department Details", 2);
+      add("Edit Department", 2);
+      add("Add Physician", 2);
+      add("Edit Physician", 2);
+      add("Deactivate Physician", 2);
+      add("Users", 1);
+      add("List", 2);
+      add("Add", 2);
+      add("Edit", 2);
+      add("Deactivate", 2);
+      add("Roles and Permissions", 1);
+      add("List", 2);
+      add("Add", 2);
+      add("Edit", 2);
+      add("Deactivate", 2);
+      add("KPI Setup", 1);
+      add("Weightage Balancing", 1);
+
+      add("IT Evaluator", 0);
+      add("IT Evaluator Dashboard", 1);
+      add("Security Card", 2);
+      add("Lineage Card", 2);
+      add("AI Traceability Card", 2);
+      add("Integration Card", 2);
+      add("Architecture Card", 2);
+      add("Export Report", 2);
+      add("Security & Access Review Page", 1);
+      add("Integration Review Page", 1);
+      add("Audit Trail Page", 1);
+      add("Architecture Page", 1);
+
+      return list;
+    }
+
+    let tasks = buildDefaultTasks();
+    const STATUS_OPTIONS = ["Not Started", "In Progress", "Completed", "N/A"];
+    let collapsedNodeIds = new Set();
+
+    // 1. Fetch live tasks from Supabase
+    async function loadTasksFromSupabase() {
+      const statusBadge = document.getElementById('statusBadge');
+      try {
+        const { data, error } = await supabase.from('tasks').select('*').order('id', { ascending: true });
+
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          tasks = data;
+          statusBadge.innerHTML = '🟢 Realtime Sync Active';
+          statusBadge.style.background = '#064e3b40';
+          statusBadge.style.color = '#34d399';
+          document.getElementById('btnInitDb').style.display = 'none';
+        } else {
+          statusBadge.innerHTML = '⚠️ Database empty. Click initialize below.';
+          statusBadge.style.background = '#78350f30';
+          statusBadge.style.color = '#fbbf24';
+          document.getElementById('btnInitDb').style.display = 'inline-flex';
+        }
+      } catch (err) {
+        statusBadge.innerHTML = '⚠️ Offline mode (Check Supabase credentials)';
+        statusBadge.style.background = '#ef444422';
+        statusBadge.style.color = '#f87171';
+      }
+
+      initCollapsedState();
+      renderTable();
+    }
+
+    // 2. Realtime Listener: Automatically updates the screen when a teammate changes a status
+    function subscribeToRealtime() {
+      supabase.channel('public:tasks')
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tasks' }, payload => {
+          const updated = payload.new;
+          const target = tasks.find(t => t.id === updated.id);
+          if (target) {
+            target.fe = updated.fe;
+            target.be = updated.be;
+            target.ai = updated.ai;
+            renderTable();
+            showToast(`Task #${updated.id} updated live by team member`);
+          }
+        })
+        .subscribe();
+    }
+
+    // 3. Update status in database
+    async function updateTaskStatus(taskId, teamKey, newValue, selectElement) {
+      const task = tasks.find(t => t.id === taskId);
+      if (!task) return;
+
+      task[teamKey] = newValue;
+      selectElement.className = `status-select ${getStatusClass(newValue)}`;
+      updateMetrics();
+
+      try {
+        const payload = {};
+        payload[teamKey] = newValue;
+        payload.updated_at = new Date().toISOString();
+
+        const { error } = await supabase.from('tasks').update(payload).eq('id', taskId);
+        if (error) throw error;
+        showToast('Saved to database');
+      } catch (err) {
+        showToast('Save failed: ' + err.message);
+      }
+    }
+
+    // 4. One-Click Initial DB Seeder
+    async function seedDatabaseInitial() {
+      if (!confirm("This will upload all 479 task rows to your Supabase database. Continue?")) return;
+      const statusBadge = document.getElementById('statusBadge');
+      statusBadge.innerText = '⏳ Uploading 479 tasks to Supabase...';
+
+      const defaultList = buildDefaultTasks();
+      
+      // Batch insert in chunks of 100
+      for (let i = 0; i < defaultList.length; i += 100) {
+        const chunk = defaultList.slice(i, i + 100);
+        const { error } = await supabase.from('tasks').upsert(chunk);
+        if (error) {
+          alert('Error seeding database: ' + error.message);
+          return;
+        }
+      }
+
+      alert('Database seeded successfully!');
+      loadTasksFromSupabase();
+    }
+
+    function initCollapsedState() {
+      collapsedNodeIds.clear();
+      for (let i = 0; i < tasks.length; i++) {
+        if (i + 1 < tasks.length && tasks[i + 1].level > tasks[i].level) {
+          collapsedNodeIds.add(tasks[i].id);
+        }
+      }
+    }
+
+    function toggleNode(taskId) {
+      if (collapsedNodeIds.has(taskId)) {
+        collapsedNodeIds.delete(taskId);
+      } else {
+        collapsedNodeIds.add(taskId);
+      }
+      renderTable();
+    }
+
+    function expandAll() {
+      collapsedNodeIds.clear();
+      renderTable();
+    }
+
+    function collapseAll() {
+      initCollapsedState();
+      renderTable();
+    }
+
+    function getStatusClass(status) {
+      if (status === "In Progress") return "status-in-progress";
+      if (status === "Completed") return "status-completed";
+      if (status === "N/A") return "status-na";
+      return "status-not-started";
+    }
+
+    function handleSearch() {
+      const query = (document.getElementById('searchInput').value || '').trim().toLowerCase();
+      if (query) {
+        const ancestorStack = [];
+        tasks.forEach(task => {
+          while (ancestorStack.length > 0 && ancestorStack[ancestorStack.length - 1].level >= task.level) {
+            ancestorStack.pop();
+          }
+          if (task.name.toLowerCase().includes(query)) {
+            ancestorStack.forEach(p => collapsedNodeIds.delete(p.id));
+          }
+          ancestorStack.push(task);
+        });
+      }
+      renderTable();
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('taskTableBody');
+      const searchQuery = (document.getElementById('searchInput').value || '').toLowerCase();
+      tbody.innerHTML = '';
+
+      const ancestorStack = [];
+
+      tasks.forEach((task, idx) => {
+        const hasChildren = (idx + 1 < tasks.length) && (tasks[idx + 1].level > task.level);
+
+        while (ancestorStack.length > 0 && ancestorStack[ancestorStack.length - 1].level >= task.level) {
+          ancestorStack.pop();
+        }
+
+        const isHiddenByAncestor = ancestorStack.some(p => collapsedNodeIds.has(p.id));
+        ancestorStack.push(task);
+
+        if (isHiddenByAncestor && !searchQuery) return;
+        if (searchQuery && !task.name.toLowerCase().includes(searchQuery)) return;
+
+        const isCollapsed = collapsedNodeIds.has(task.id);
+        const tr = document.createElement('tr');
+        tr.className = `level-${task.level}`;
+
+        let toggleBtn = hasChildren 
+          ? `<span class="toggle-icon" onclick="toggleNode(${task.id})">${isCollapsed ? '▶' : '▼'}</span>` 
+          : `<span class="toggle-spacer"></span>`;
+
+        let levelIcon = '';
+        if (task.level === 0) levelIcon = '📂 ';
+        else if (task.level === 1) levelIcon = '📁 ';
+        else if (task.level === 2) levelIcon = (hasChildren ? '📁 ' : '📄 ');
+        else levelIcon = '🔹 ';
+
+        let feCell = '<span class="header-placeholder">—</span>';
+        let beCell = '<span class="header-placeholder">—</span>';
+        let aiCell = '<span class="header-placeholder">—</span>';
+
+        if (!hasChildren) {
+          feCell = createStatusDropdown(task.id, 'fe', task.fe);
+          beCell = createStatusDropdown(task.id, 'be', task.be);
+          aiCell = createStatusDropdown(task.id, 'ai', task.ai);
+        }
+
+        tr.innerHTML = `
+          <td>${toggleBtn}${levelIcon}${task.name}</td>
+          <td>${feCell}</td>
+          <td>${beCell}</td>
+          <td>${aiCell}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      updateMetrics();
+    }
+
+    function createStatusDropdown(taskId, teamKey, currentVal) {
+      const cls = getStatusClass(currentVal);
+      const optionsHtml = STATUS_OPTIONS.map(opt => 
+        `<option value="${opt}" ${opt === currentVal ? 'selected' : ''}>${opt}</option>`
+      ).join('');
+
+      return `
+        <select class="status-select ${cls}" onchange="updateTaskStatus(${taskId}, '${teamKey}', this.value, this)">
+          ${optionsHtml}
+        </select>
+      `;
+    }
+
+    function calculateTeamProgress(teamKey) {
+      let applicable = 0;
+      let completed = 0;
+      tasks.forEach((t, idx) => {
+        const hasChildren = (idx + 1 < tasks.length) && (tasks[idx + 1].level > t.level);
+        if (!hasChildren) {
+          if (t[teamKey] !== 'N/A') {
+            applicable++;
+            if (t[teamKey] === 'Completed') completed++;
+          }
+        }
+      });
+      const pct = applicable === 0 ? 100 : Math.round((completed / applicable) * 100);
+      return { completed, applicable, pct };
+    }
+
+    function updateMetrics() {
+      const fe = calculateTeamProgress('fe');
+      const be = calculateTeamProgress('be');
+      const ai = calculateTeamProgress('ai');
+
+      const totalApplicable = fe.applicable + be.applicable + ai.applicable;
+      const totalCompleted = fe.completed + be.completed + ai.completed;
+      const overallPct = totalApplicable === 0 ? 100 : Math.round((totalCompleted / totalApplicable) * 100);
+
+      document.getElementById('stat-fe-pct').innerText = `${fe.pct}%`;
+      document.getElementById('stat-fe-tasks').innerText = `${fe.completed}/${fe.applicable} tasks`;
+      document.getElementById('bar-fe').style.width = `${fe.pct}%`;
+
+      document.getElementById('stat-be-pct').innerText = `${be.pct}%`;
+      document.getElementById('stat-be-tasks').innerText = `${be.completed}/${be.applicable} tasks`;
+      document.getElementById('bar-be').style.width = `${be.pct}%`;
+
+      document.getElementById('stat-ai-pct').innerText = `${ai.pct}%`;
+      document.getElementById('stat-ai-tasks').innerText = `${ai.completed}/${ai.applicable} tasks`;
+      document.getElementById('bar-ai').style.width = `${ai.pct}%`;
+
+      document.getElementById('stat-overall-pct').innerText = `${overallPct}%`;
+      document.getElementById('stat-overall-tasks').innerText = `${totalCompleted}/${totalApplicable} tasks`;
+      document.getElementById('bar-overall').style.width = `${overallPct}%`;
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.innerText = msg;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2000);
+    }
+
+    function exportCSV() {
+      let csv = 'Task Name,Level,Is Leaf,Front End,Back End,AI\n';
+      tasks.forEach((t, idx) => {
+        const hasChildren = (idx + 1 < tasks.length) && (tasks[idx + 1].level > t.level);
+        const indent = '  '.repeat(t.level);
+        csv += `"${indent + t.name.replace(/"/g, '""')}",${t.level},${!hasChildren},"${hasChildren ? '' : t.fe}","${hasChildren ? '' : t.be}","${hasChildren ? '' : t.ai}"\n`;
+      });
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `kpi_tasks_tracker_${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();
+    }
+
+    // Startup
+    loadTasksFromSupabase();
+    subscribeToRealtime();
+  </script>
+</body>
+</html>
