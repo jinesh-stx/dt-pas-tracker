@@ -309,7 +309,8 @@
     const SUPABASE_URL = 'https://qyxyenzxuwrjajsvudyx.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF5eHllbnp4dXdyamFqc3Z1ZHl4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY5NTIwMDMsImV4cCI6MjEwMjUyODAwM30.sajKFIQg6d4pZMjA6ILRfiRru62jZZxqIwiTmqOjAHY';
 
-    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // Resolved identifier collision: declared as supabaseClient
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     const KPIS = [
       "TNAA", "Average Days to Appointment", "Same-/Next-Day %", "Seasonal/Pattern Variability",
@@ -413,7 +414,7 @@
     async function loadTasksFromSupabase() {
       const statusBadge = document.getElementById('statusBadge');
       try {
-        const { data, error } = await supabase.from('tasks').select('*').order('id', { ascending: true });
+        const { data, error } = await supabaseClient.from('tasks').select('*').order('id', { ascending: true });
 
         if (error) throw error;
 
@@ -441,7 +442,7 @@
 
     // 2. Realtime Listener: Automatically updates the screen when a teammate changes a status
     function subscribeToRealtime() {
-      supabase.channel('public:tasks')
+      supabaseClient.channel('public:tasks')
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tasks' }, payload => {
           const updated = payload.new;
           const target = tasks.find(t => t.id === updated.id);
@@ -470,7 +471,7 @@
         payload[teamKey] = newValue;
         payload.updated_at = new Date().toISOString();
 
-        const { error } = await supabase.from('tasks').update(payload).eq('id', taskId);
+        const { error } = await supabaseClient.from('tasks').update(payload).eq('id', taskId);
         if (error) throw error;
         showToast('Saved to database');
       } catch (err) {
@@ -489,7 +490,7 @@
       // Batch insert in chunks of 100
       for (let i = 0; i < defaultList.length; i += 100) {
         const chunk = defaultList.slice(i, i + 100);
-        const { error } = await supabase.from('tasks').upsert(chunk);
+        const { error } = await supabaseClient.from('tasks').upsert(chunk);
         if (error) {
           alert('Error seeding database: ' + error.message);
           return;
