@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Engineering Task Tracker (Supabase Live Realtime)</title>
+  <title>Engineering Task Tracker (375 Innermost Leaf Tasks)</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -77,7 +77,7 @@
     .btn-outline { background: #1e293b; color: var(--text-main); border-color: var(--card-border); }
     .btn-outline:hover { background: #334155; }
 
-    /* Metrics */
+    /* Metrics Cards */
     .metrics-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -251,25 +251,25 @@
       </div>
     </header>
 
-    <!-- Metrics Cards -->
+    <!-- Metrics Cards (Tracking 375 Innermost Leaf Tasks) -->
     <div class="metrics-grid">
       <div class="metric-card">
-        <div class="metric-card-header"><span>Overall Progress</span><span id="stat-overall-tasks">0/0</span></div>
+        <div class="metric-card-header"><span>Overall Progress</span><span id="stat-overall-tasks">0/375</span></div>
         <div class="metric-value" id="stat-overall-pct" style="color: #10b981;">0%</div>
         <div class="progress-bar-bg"><div id="bar-overall" class="progress-bar-fill fill-overall" style="width: 0%;"></div></div>
       </div>
       <div class="metric-card">
-        <div class="metric-card-header"><span>Frontend Progress</span><span id="stat-fe-tasks">0/0</span></div>
+        <div class="metric-card-header"><span>Frontend Progress</span><span id="stat-fe-tasks">0/375</span></div>
         <div class="metric-value" id="stat-fe-pct" style="color: #38bdf8;">0%</div>
         <div class="progress-bar-bg"><div id="bar-fe" class="progress-bar-fill fill-frontend" style="width: 0%;"></div></div>
       </div>
       <div class="metric-card">
-        <div class="metric-card-header"><span>Backend Progress</span><span id="stat-be-tasks">0/0</span></div>
+        <div class="metric-card-header"><span>Backend Progress</span><span id="stat-be-tasks">0/375</span></div>
         <div class="metric-value" id="stat-be-pct" style="color: #a855f7;">0%</div>
         <div class="progress-bar-bg"><div id="bar-be" class="progress-bar-fill fill-backend" style="width: 0%;"></div></div>
       </div>
       <div class="metric-card">
-        <div class="metric-card-header"><span>AI Team Progress</span><span id="stat-ai-tasks">0/0</span></div>
+        <div class="metric-card-header"><span>AI Team Progress</span><span id="stat-ai-tasks">0/374</span></div>
         <div class="metric-value" id="stat-ai-pct" style="color: #ec4899;">0%</div>
         <div class="progress-bar-bg"><div id="bar-ai" class="progress-bar-fill fill-ai" style="width: 0%;"></div></div>
       </div>
@@ -309,7 +309,6 @@
     const SUPABASE_URL = 'https://qyxyenzxuwrjajsvudyx.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF5eHllbnp4dXdyamFqc3Z1ZHl4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY5NTIwMDMsImV4cCI6MjEwMjUyODAwM30.sajKFIQg6d4pZMjA6ILRfiRru62jZZxqIwiTmqOjAHY';
 
-    // Resolved identifier collision: declared as supabaseClient
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     const KPIS = [
@@ -410,7 +409,6 @@
     const STATUS_OPTIONS = ["Not Started", "In Progress", "Completed", "N/A"];
     let collapsedNodeIds = new Set();
 
-    // 1. Fetch live tasks from Supabase
     async function loadTasksFromSupabase() {
       const statusBadge = document.getElementById('statusBadge');
       try {
@@ -440,7 +438,6 @@
       renderTable();
     }
 
-    // 2. Realtime Listener: Automatically updates the screen when a teammate changes a status
     function subscribeToRealtime() {
       supabaseClient.channel('public:tasks')
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tasks' }, payload => {
@@ -451,13 +448,12 @@
             target.be = updated.be;
             target.ai = updated.ai;
             renderTable();
-            showToast(`Task #${updated.id} updated live by team member`);
+            showToast(`Task #${updated.id} updated live`);
           }
         })
         .subscribe();
     }
 
-    // 3. Update status in database
     async function updateTaskStatus(taskId, teamKey, newValue, selectElement) {
       const task = tasks.find(t => t.id === taskId);
       if (!task) return;
@@ -479,15 +475,12 @@
       }
     }
 
-    // 4. One-Click Initial DB Seeder
     async function seedDatabaseInitial() {
       if (!confirm("This will upload all 479 task rows to your Supabase database. Continue?")) return;
       const statusBadge = document.getElementById('statusBadge');
-      statusBadge.innerText = '⏳ Uploading 479 tasks to Supabase...';
+      statusBadge.innerText = '⏳ Uploading tasks to Supabase...';
 
       const defaultList = buildDefaultTasks();
-      
-      // Batch insert in chunks of 100
       for (let i = 0; i < defaultList.length; i += 100) {
         const chunk = defaultList.slice(i, i + 100);
         const { error } = await supabaseClient.from('tasks').upsert(chunk);
@@ -643,24 +636,44 @@
       const be = calculateTeamProgress('be');
       const ai = calculateTeamProgress('ai');
 
-      const totalApplicable = fe.applicable + be.applicable + ai.applicable;
-      const totalCompleted = fe.completed + be.completed + ai.completed;
-      const overallPct = totalApplicable === 0 ? 100 : Math.round((totalCompleted / totalApplicable) * 100);
+      // Total leaf tasks count
+      let totalLeafCount = 0;
+      let fullyCompletedLeafTasks = 0;
 
+      tasks.forEach((t, idx) => {
+        const hasChildren = (idx + 1 < tasks.length) && (tasks[idx + 1].level > t.level);
+        if (!hasChildren) {
+          totalLeafCount++;
+          // A leaf task is fully completed if all applicable teams marked it Completed
+          const feDone = t.fe === 'Completed' || t.fe === 'N/A';
+          const beDone = t.be === 'Completed' || t.be === 'N/A';
+          const aiDone = t.ai === 'Completed' || t.ai === 'N/A';
+          if (feDone && beDone && aiDone) {
+            fullyCompletedLeafTasks++;
+          }
+        }
+      });
+
+      const overallPct = totalLeafCount === 0 ? 100 : Math.round((fullyCompletedLeafTasks / totalLeafCount) * 100);
+
+      // Update Frontend (X / 375)
       document.getElementById('stat-fe-pct').innerText = `${fe.pct}%`;
-      document.getElementById('stat-fe-tasks').innerText = `${fe.completed}/${fe.applicable} tasks`;
+      document.getElementById('stat-fe-tasks').innerText = `${fe.completed}/${fe.applicable}`;
       document.getElementById('bar-fe').style.width = `${fe.pct}%`;
 
+      // Update Backend (X / 375)
       document.getElementById('stat-be-pct').innerText = `${be.pct}%`;
-      document.getElementById('stat-be-tasks').innerText = `${be.completed}/${be.applicable} tasks`;
+      document.getElementById('stat-be-tasks').innerText = `${be.completed}/${be.applicable}`;
       document.getElementById('bar-be').style.width = `${be.pct}%`;
 
+      // Update AI (X / 374 - since Role-based login is N/A for AI)
       document.getElementById('stat-ai-pct').innerText = `${ai.pct}%`;
-      document.getElementById('stat-ai-tasks').innerText = `${ai.completed}/${ai.applicable} tasks`;
+      document.getElementById('stat-ai-tasks').innerText = `${ai.completed}/${ai.applicable}`;
       document.getElementById('bar-ai').style.width = `${ai.pct}%`;
 
+      // Update Overall (X / 375 total innermost tasks)
       document.getElementById('stat-overall-pct').innerText = `${overallPct}%`;
-      document.getElementById('stat-overall-tasks').innerText = `${totalCompleted}/${totalApplicable} tasks`;
+      document.getElementById('stat-overall-tasks').innerText = `${fullyCompletedLeafTasks}/${totalLeafCount}`;
       document.getElementById('bar-overall').style.width = `${overallPct}%`;
     }
 
